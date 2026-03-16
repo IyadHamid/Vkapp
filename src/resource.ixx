@@ -174,7 +174,7 @@ namespace vkapp {
 		) : extent{ extent }, format{ format } {
 			auto image_tiling = allocation_flags & vma::AllocationCreateFlagBits::eHostAccessSequentialWrite or allocation_flags & vma::AllocationCreateFlagBits::eHostAccessRandom ? vk::ImageTiling::eLinear : vk::ImageTiling::eOptimal;
 			auto [image_type, image_view_type] = extent.getImageType();
-			std::tie(image, allocation) = owner.allocator.createImage(
+			std::tie(allocation, image) = owner.allocator.createImage(
 				vk::ImageCreateInfo(
 					{},
 					image_type, format,
@@ -263,7 +263,7 @@ namespace vkapp {
 			vma::MemoryUsage usage = vma::MemoryUsage::eAuto
 		) : size{ size } {
 			vma::AllocationInfo alloc_info;
-			std::tie(buffer, allocation) = owner.allocator.createBuffer(
+			std::tie(allocation, buffer) = owner.allocator.createBuffer(
 				vk::BufferCreateInfo({}, size, usage_flags | vk::BufferUsageFlagBits::eShaderDeviceAddress),
 				vma::AllocationCreateInfo(alloc_flags, usage),
 				alloc_info

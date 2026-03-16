@@ -8,7 +8,7 @@ export module vkapp:app;
 
 import std;
 import vulkan;
-import vk_mem_alloc_hpp;
+import vk_mem_alloc;
 import glm;
 
 import :utils;

@@ -6,7 +6,7 @@ export module vkapp:device_owner;
 
 import std;
 import vulkan;
-import vk_mem_alloc_hpp;
+import vk_mem_alloc;
 
 import :utils;
 
