@@ -50,6 +50,7 @@ namespace vkapp::io {
 	export enum class MouseWheel { X = 0, Y = 1 };
 
 	export using Input = std::variant<Key, MouseButton, MouseMove, MouseWheel>;
+
 	export using Clicks = std::uint8_t;
 	export struct MultiInput {
 		Input input;
@@ -67,7 +68,18 @@ namespace vkapp::io {
 		bool pressed;
 		std::chrono::nanoseconds timestamp;
 	};
+}
 
+export template<>
+struct std::hash<vkapp::io::Input> {
+	size_t operator()(const vkapp::io::Input& i) const noexcept {
+		return std::visit([&](const auto& value) {
+			return std::hash<std::decay_t<decltype(value)>>{}(value) + i.index() * 512;
+		}, i);
+	}
+};
+
+namespace vkapp::io {
 	export class InputState {
 		using EventQueue = std::vector<InputEvent>; // TODO[C++26]: inplace_vector<InputEvent, 2>
 
@@ -141,7 +153,7 @@ namespace vkapp::io {
 
 
 }
-#if 1
+
 namespace vkapp {
 
 	export template <typename AxisT>
@@ -212,7 +224,7 @@ namespace vkapp {
 		void tickgroup(std::size_t group, std::span<axis_type> axes) {
 			for (auto axis : axes)
 				axis_controls[axis].tickgroup = group;
-			events.resize(group);
+			events.resize(group + 1);
 		}
 		void tickgroup(std::size_t group, axis_type axis) { tickgroup(group, {{ axis }}); }
 
@@ -317,5 +329,3 @@ void InputManager<AxisT>::process(SDL_Event event) {
 		}
 	}
 }
-
-#endif
