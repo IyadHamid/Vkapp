@@ -11,6 +11,8 @@ module vkapp;
 
 using namespace vkapp;
 
+constexpr auto api_version = vk::ApiVersion14; // TODO[refactor]: expose
+
 Application::Application(
 	zstring_view app_name, 
 	std::uint32_t app_version, 
@@ -25,7 +27,7 @@ Application::Application(
 		std::vector<const char*> extensions(std::from_range, window.getInstanceExtensions());
 		extensions.push_back(vk::EXTDebugUtilsExtensionName);
 		auto instance = createInstance(
-			{ app_name, app_version, (VKAPP_NAME), (VKAPP_VERSION), vk::ApiVersion13 },
+			{ app_name, app_version, (VKAPP_NAME), (VKAPP_VERSION), api_version },
 			layers,
 			extensions
 		);
@@ -44,7 +46,7 @@ Application::Application(
 
 		// TODO[algo]: select physical device
 		auto it = std::ranges::find_if(physical_devices, [](auto pd) { 
-			return pd.getProperties().apiVersion >= vk::ApiVersion13 and pd.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
+			return pd.getProperties().apiVersion >= api_version and pd.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
 		});
 		check(it != physical_devices.end(), "no valid physical devices");
 		physical_device = *it;
@@ -64,7 +66,7 @@ Application::Application(
 		nullptr,
 		&funcs,
 		instance,
-		vk::ApiVersion13 // TODO[update VMA]: use vk::ApiVersion14
+		api_version
 	));
 
 	immediate.pool = owner().nameAs("app.immediate.pool", createCommandPool(Queues::Graphics, {}));

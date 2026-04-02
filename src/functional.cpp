@@ -167,6 +167,7 @@ std::pair<vk::Device, Queues> vkapp::createDeviceWithQueues(vk::PhysicalDevice p
 			.setDescriptorBindingUniformBufferUpdateAfterBind(true)
 			.setDescriptorBindingStorageImageUpdateAfterBind(true),
 		vk::PhysicalDeviceBufferDeviceAddressFeatures(true),
+		vk::PhysicalDeviceHostImageCopyFeatures(true),
 	};
 	auto device = physical_device.createDevice(create_info.get<vk::DeviceCreateInfo>());
 
