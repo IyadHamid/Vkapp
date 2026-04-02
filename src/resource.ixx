@@ -52,6 +52,8 @@ namespace vkapp {
 			constexpr ImageUsage compute_write     { Stage::eComputeShader        , Access::eShaderWrite         , Layout::eGeneral                };
 			constexpr ImageUsage transfer_src      { Stage::eTransfer             , Access::eTransferRead        , Layout::eTransferSrcOptimal     };
 			constexpr ImageUsage transfer_dst      { Stage::eTransfer             , Access::eTransferWrite       , Layout::eTransferDstOptimal     };
+			constexpr ImageUsage host_read         { Stage::eHost                 , Access::eHostRead            , Layout::eGeneral                };
+			constexpr ImageUsage host_write        { Stage::eHost                 , Access::eHostWrite           , Layout::eGeneral                };
 		}
 	}
 }
