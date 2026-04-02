@@ -82,10 +82,11 @@ export namespace vkapp {
 		Queue transfer() { return queue(Queues::Transfer); }
 		Queue presents() { return queue(Queues::Presents); }
 
-		void immediateWait() { waitForFences(device, immediate.fence); }
+		void immediateWait() { waitForFences(device, immediate.fence, false); }
 
 		void immediateSubmit(std::invocable<vk::CommandBuffer> auto&& f) {
-			immediateWait();
+			waitForFences(device, immediate.fence);
+
 			device.resetCommandPool(immediate.pool);
 			immediate.buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 			std::invoke(f, immediate.buffer);
