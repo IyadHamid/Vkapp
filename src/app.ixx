@@ -234,13 +234,10 @@ export namespace vkapp {
 		static vk::PipelineBindPoint findBindPoint(vk::ShaderStageFlags stage) {
 			using enum vk::ShaderStageFlagBits;
 			constexpr auto all_raytracing_khr = eRaygenKHR | eAnyHitKHR | eClosestHitKHR | eMissKHR | eIntersectionKHR | eCallableKHR;
-			constexpr auto all_raytracing_nv = eRaygenNV | eAnyHitNV | eClosestHitNV | eMissNV | eIntersectionNV | eCallableNV;
 			if (stage & eCompute)
 				return vk::PipelineBindPoint::eCompute;
 			if (stage & all_raytracing_khr)
 				return vk::PipelineBindPoint::eRayTracingKHR;
-			if (stage & all_raytracing_nv)
-				return vk::PipelineBindPoint::eRayTracingNV;
 
 			return vk::PipelineBindPoint::eGraphics; // guess graphics, others not supported
 		}
