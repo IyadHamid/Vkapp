@@ -16,9 +16,24 @@ namespace vk::detail {
 	export extern DispatchLoaderDynamic defaultDispatchLoaderDynamic;
 }
 
+namespace vkapp {
+	export template <typename T>
+	class StructureChainPtr {
+		std::shared_ptr<void> chain;
+		std::move_only_function<const T&()> getter;
+
+	public:
+		template <typename... Ts>
+		StructureChainPtr(vk::StructureChain<T, Ts...>&& chain) : 
+			chain{ std::move(chain) },
+			getter{ [&] { return std::any_cast<vk::StructureChain<T, Ts...>>(chain).get(); } }
+		{}
+
+		const T& get() { return getter(); }
+	};
+}
+
 export namespace vkapp {
-
-
 	struct Queues {
 		using QueuesEnum = std::uint8_t;
 		enum : QueuesEnum { Graphics, Transfer, Presents, Count };
@@ -113,4 +128,50 @@ export namespace vkapp {
 	void waitForFences(vk::Device device, const vk::Fence fence, bool reset = true) { waitForFences(device, std::span<const vk::Fence>{{ fence }}, reset); }
 
 	vk::SamplerCreateInfo simpleSampler(vk::Filter filter = vk::Filter::eNearest, vk::SamplerMipmapMode mipmap_mode = vk::SamplerMipmapMode::eNearest, vk::SamplerAddressMode address_mode = vk::SamplerAddressMode::eRepeat);
+}
+
+namespace vkapp {
+	// see https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html
+
+	struct DynamicStatesInfo {
+		std::vector<vk::DynamicState> states;
+		vk::PipelineDynamicStateCreateInfo create_info;
+	};
+	export std::unique_ptr<DynamicStatesInfo> fillDynamicStates(vk::GraphicsPipelineCreateInfo& info) {
+		std::unique_ptr dynamic_states = std::make_unique<DynamicStatesInfo>();
+		using enum vk::DynamicState;
+
+		auto append = [&](const auto* state, auto... states) {
+			if (state != nullptr)
+				return;
+			dynamic_states->states.append_range(std::array{ states... });
+		};
+		append(info.pVertexInputState, eVertexInputEXT);
+
+		append(info.pInputAssemblyState, ePrimitiveRestartEnable, ePrimitiveTopology);
+		append(info.pTessellationState, ePatchControlPointsEXT);
+		append(info.pViewportState, eViewportWithCount, eScissorWithCount);
+		append(info.pRasterizationState,
+			eDepthClampEnableEXT, eRasterizerDiscardEnable, ePolygonModeEXT,
+			eCullMode, eFrontFace, eDepthBiasEnable, eDepthBias, eLineWidth
+		);
+		append(info.pMultisampleState,
+			eRasterizationSamplesEXT, eSampleMaskEXT, eAlphaToCoverageEnableEXT //eAlphaToOneEnableEXT
+		);
+		append(info.pDepthStencilState,
+			eDepthTestEnable, eDepthWriteEnable, eDepthCompareOp, eDepthBoundsTestEnable,
+			eStencilTestEnable, eStencilOp, eDepthBounds
+		);
+		append(info.pColorBlendState,
+			eLogicOpEnableEXT, eLogicOpEXT, eColorBlendEnableEXT,
+			eColorBlendEquationEXT, eColorWriteMaskEXT, eBlendConstants
+		);
+		dynamic_states->create_info = vk::PipelineDynamicStateCreateInfo({}, dynamic_states->states);
+		info.setPDynamicState(&dynamic_states->create_info);
+		return dynamic_states;
+	};
+
+
+	
+
 }

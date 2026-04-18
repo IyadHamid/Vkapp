@@ -16,86 +16,88 @@ constexpr auto api_version = vk::ApiVersion14; // TODO[refactor]: expose
 Application::Application(
 	zstring_view app_name, 
 	std::uint32_t app_version, 
-	vk::Extent2D resolution, 
+	vk::Extent2D resolution,
+	std::span<const char* const> shader_search_paths,
+	std::span<const MacroDesc> shader_macros,
 	std::uint32_t frame_count, 
 	vk::Format swapchain_format, 
 	vk::PresentModeKHR present_mode
 ) :
 	window(app_name, resolution),
 	instance{ [&] {
-		std::vector<const char*> layers;
 		std::vector<const char*> extensions(std::from_range, window.getInstanceExtensions());
 		extensions.push_back(vk::EXTDebugUtilsExtensionName);
 		auto instance = createInstance(
 			{ app_name, app_version, (VKAPP_NAME), (VKAPP_VERSION), api_version },
-			layers,
+			{},
 			extensions
 		);
-		return instance;
+		return DebugInstance(instance);
 	}() },
-	debug_messenger{ createDebugMessenger(instance) },
 	surface{ window.createSurface(instance) },
 	resolution{ resolution },
 	swapchain_format{ swapchain_format },
-	present_mode{ present_mode }
-{
-	SPDLOG_INFO("created application \"{}\" {}", app_name, app_version);
-	{
-		const auto& physical_devices = instance.enumeratePhysicalDevices();
-		std::vector<const char*> extensions{ vk::KHRSwapchainExtensionName, vk::EXTShaderObjectExtensionName };
+	present_mode{ present_mode },
+	physical_device{ [&] {
+		const auto& physical_devices = instance->enumeratePhysicalDevices();
 
 		// TODO[algo]: select physical device
-		auto it = std::ranges::find_if(physical_devices, [](auto pd) { 
+		auto it = std::ranges::find_if(physical_devices, [](auto pd) {
 			return pd.getProperties().apiVersion >= api_version and pd.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
 		});
 		check(it != physical_devices.end(), "no valid physical devices");
-		physical_device = *it;
-		
+		return *it;
+	}() },
+	queues{}, // initalize with owner
+	unique_owner{ [&] {
+		std::vector<const char*> extensions{
+			vk::KHRSwapchainExtensionName,
+			vk::KHRMaintenance5ExtensionName,
+			vk::EXTExtendedDynamicState3ExtensionName,
+			vk::EXTColorWriteEnableExtensionName,
+			vk::EXTVertexInputDynamicStateExtensionName,
+		};
+		vk::Device device;
 		std::tie(device, queues) = createDeviceWithQueues(physical_device, surface, extensions);
-	}
+
+		vma::VulkanFunctions funcs = vma::functionsFromDispatcher();
+		auto allocator =  vma::createAllocator(vma::AllocatorCreateInfo(
+			vma::AllocatorCreateFlagBits::eBufferDeviceAddress,
+			physical_device,
+			device,
+			vk::DeviceSize{},
+			nullptr,
+			nullptr,
+			nullptr,
+			&funcs,
+			instance,
+			api_version
+		));
+		return UniqueDeviceOwner(device, allocator);
+	}() },
+	desc_manager(owner()),
+	shader_compiler(shader_search_paths, shader_macros),
+	immediate{ [&] {
+		auto pool = createCommandPool(Queues::Graphics, {});
+		return owner().makeUnique(Immediate(
+			owner().nameAs("app.immediate.pool", pool),
+			owner().nameAs("app.immediate.buffer", owner()->allocateCommandBuffers(vk::CommandBufferAllocateInfo(pool, vk::CommandBufferLevel::ePrimary, 1))[0]),
+			owner().nameAs("app.immediate.fence", fenceCreator()())
+		));
+	}() }
+{
+	SPDLOG_INFO("created application \"{}\" {}", app_name, app_version);
 	SPDLOG_INFO("created device on \"{}\"", std::string_view(physical_device.getProperties().deviceName));
-
-	vma::VulkanFunctions funcs = vma::functionsFromDispatcher();
-	allocator = vma::createAllocator(vma::AllocatorCreateInfo(
-		vma::AllocatorCreateFlagBits::eBufferDeviceAddress,
-		physical_device,
-		device,
-		vk::DeviceSize{},
-		nullptr,
-		nullptr,
-		nullptr,
-		&funcs,
-		instance,
-		api_version
-	));
-
-	immediate.pool = owner().nameAs("app.immediate.pool", createCommandPool(Queues::Graphics, {}));
-	immediate.buffer = owner().nameAs("app.immediate.buffer", device.allocateCommandBuffers(vk::CommandBufferAllocateInfo(immediate.pool, vk::CommandBufferLevel::ePrimary, 1))[0]);
-	immediate.fence = owner().nameAs("app.immediate.fence", fenceCreator()());
 
 	setFrameCount(frame_count);
 }
 
 Application::~Application() {
-	if (device) {
-		device.waitIdle();
-
-		owner().destroyAll(immediate);
-
-		owner().destroyAll(swapchain);
-
-		allocator.destroy(); // TODO: batch into DeviceOwner and call DeviceOwner::destroy()
-		device.destroy();
-	}
-
-	window.destroySurface(instance, surface);
-	instance.destroy(debug_messenger);
-	instance.destroy();
 	SPDLOG_INFO("destroyed application");
 }
 
 const Image& Application::acquireFrame(vk::Semaphore semaphore) {
-	auto acquire_next = [&] { return device.acquireNextImageKHR(swapchain.swapchain, std::numeric_limits<uint64_t>::max(), semaphore, nullptr); };
+	auto acquire_next = [&] { return owner()->acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<uint64_t>::max(), semaphore, nullptr); };
 
 	vk::Result result;
 	std::tie(result, swapchain_image_index) = acquire_next();
@@ -108,9 +110,9 @@ const Image& Application::acquireFrame(vk::Semaphore semaphore) {
 		check(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR, "unable to acquire frame");
 
 	swapchain_image_stub.extent = Image::Extent(vk::Extent3D(resolution, 1u));
-	swapchain_image_stub.format = swapchain.format;
-	swapchain_image_stub.image = swapchain.images[swapchain_image_index];
-	swapchain_image_stub.full_view = swapchain.image_views[swapchain_image_index];
+	swapchain_image_stub.format = swapchain->format;
+	swapchain_image_stub.image = swapchain->images[swapchain_image_index];
+	swapchain_image_stub.full_view = swapchain->image_views[swapchain_image_index];
 
 	return swapchain_image_stub;
 }
@@ -118,7 +120,7 @@ const Image& Application::acquireFrame(vk::Semaphore semaphore) {
 void Application::present(vk::Semaphore wait) {
 	auto _ = queues.queues[Queues::Presents].presentKHR(vk::PresentInfoKHR(
 		{ wait },
-		swapchain.swapchain,
+		swapchain->swapchain,
 		swapchain_image_index,
 		{}
 	));
@@ -127,12 +129,12 @@ void Application::present(vk::Semaphore wait) {
 }
 
 void Application::resize() {
-	device.waitIdle();
+	owner()->waitIdle();
 	resolution = window.getWindowSize();
-	owner().destroyAll(swapchain);
-	recreateSwapchain(physical_device, device, queues, surface, swapchain_format, present_mode, resolution, frame_count, swapchain);
-	owner().nameAs("swapchain.images", swapchain.images);
-	owner().nameAs("swapchain.image_views", swapchain.image_views);
+	swapchain = owner().makeUnique(Swapchain());
+	recreateSwapchain(physical_device, owner(), queues, surface, swapchain_format, present_mode, resolution, frame_count, *swapchain);
+	owner().nameAs("swapchain.images", swapchain->images);
+	owner().nameAs("swapchain.image_views", swapchain->image_views);
 
 	if (on_resize)
 		on_resize(*this, resolution);
@@ -170,10 +172,10 @@ ImGuiState::ImGuiState(Application& app, vk::Format depth_format, vk::Format ste
 	// Setup Platform/Renderer backends
 	ImGui_ImplSDL3_InitForVulkan(app.window.window);
 	ImGui_ImplVulkan_InitInfo init_info = {};
-	init_info.ApiVersion = vk::ApiVersion13; // TODO[logic]: get from app
-	init_info.Instance = app.instance;
+	init_info.ApiVersion = api_version;
+	init_info.Instance = *app.instance;
 	init_info.PhysicalDevice = app.physical_device;
-	init_info.Device = app.device;
+	init_info.Device = app.owner().device;
 	init_info.QueueFamily = app.queues.family_indices[Queues::Graphics];
 	init_info.Queue = app.queues.queues[Queues::Graphics];
 
@@ -183,7 +185,7 @@ ImGuiState::ImGuiState(Application& app, vk::Format depth_format, vk::Format ste
 
 	init_info.DescriptorPoolSize = 2;
 
-	std::array color_attachment_formats = { app.swapchain.format };
+	std::array color_attachment_formats = { app.swapchain->format };
 	init_info.UseDynamicRendering = true;
 	init_info.PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo({}, color_attachment_formats, depth_format, stencil_format);
 

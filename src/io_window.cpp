@@ -41,22 +41,6 @@ std::span<const char* const> Window::getInstanceExtensions() const {
 	return std::span(raw, count);
 }
 
-vk::SurfaceKHR Window::createSurface(vk::Instance instance) {
-	check(instance, "instance not valid");
-
-	vk::SurfaceKHR::CType c_surface;
-	check(SDL_Vulkan_CreateSurface(window, instance, nullptr, &c_surface), "failed to create surface");
-	auto surface = vk::SurfaceKHR(c_surface);
-
-	SPDLOG_INFO("created surface");
-	return surface;
-}
-
-void Window::destroySurface(vk::Instance instance, vk::SurfaceKHR surface) {
-	SDL_Vulkan_DestroySurface(instance, surface, nullptr);
-
-	SPDLOG_INFO("destroyed surface");
-}
 
 vk::Extent2D Window::getWindowSize() const {
 	int x, y;
@@ -68,4 +52,19 @@ vk::Extent2D Window::getWindowSize() const {
 std::generator<SDL_Event> Window::poll() const {
 	for (SDL_Event event; SDL_PollEvent(&event);)
 		co_yield event;
+}
+
+
+WindowSurface Window::createSurface(vk::Instance instance) {
+	return WindowSurface(instance, window);
+}
+
+WindowSurface::WindowSurface(vk::Instance instance, SDL_Window* window) : instance{ instance } {
+	vk::SurfaceKHR::CType c_surface;
+	check(SDL_Vulkan_CreateSurface(window, instance, nullptr, &c_surface), "failed to create surface");
+	surface = vk::SurfaceKHR(c_surface);
+}
+
+WindowSurface::~WindowSurface() {
+	SDL_Vulkan_DestroySurface(instance, surface, nullptr);
 }

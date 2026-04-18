@@ -33,7 +33,12 @@ namespace vkapp {
 		vk::Device device;
 		vma::Allocator allocator;
 
+	public:
+		operator vk::Device() const { return device; }
+		operator vma::Allocator() const { return allocator; }
+		const vk::Device* operator->() const { return &device; }
 
+	public:
 		auto&& nameAs(zstring_view name, auto&& object) const requires not std::ranges::input_range<decltype(object)> {
 			setDebugName(device, std::forward<decltype(object)>(object), name);
 			return static_cast<decltype(object)>(object);
@@ -84,6 +89,18 @@ namespace vkapp {
 		[[nodiscard]] auto makeUniqueWithName(zstring_view name, auto&& arg) { return makeUnique(nameAs(name, std::forward<decltype(arg)>(arg))); }
 
 	};
+
+	struct UniqueDeviceOwner : DeviceOwner {
+		UniqueDeviceOwner(vk::Device device, vma::Allocator allocator) : DeviceOwner{ device, allocator } {}
+		UniqueDeviceOwner(const UniqueDeviceOwner&) = delete;
+		~UniqueDeviceOwner() {
+			device.waitIdle();
+			allocator.destroy();
+			device.destroy();
+		}
+		operator DeviceOwner() const { return *this; }
+	};
+
 
 	export template <typename T>
 	using Unique = DeviceOwner::Unique<T>;

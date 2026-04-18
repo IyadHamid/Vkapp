@@ -16,15 +16,18 @@ export namespace vkapp {
 	using MacroDesc = slang::PreprocessorMacroDesc;
 
 	class ShaderSession {
+	public:
+		using CodesStages = std::vector<std::pair<Slang::ComPtr<slang::IBlob>, SlangStage>>;
+		using PipelineShaderCreateInfo = vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::ShaderModuleCreateInfo>;
+	private:
 		Slang::ComPtr<slang::IGlobalSession> global_session;
 		Slang::ComPtr<slang::ISession> session;
-
 
 	public:
 		ShaderSession(std::span<const char* const> search_paths, std::span<const MacroDesc> macros);
 
 	private:
-		std::vector<std::pair<Slang::ComPtr<slang::IBlob>, SlangStage>> compile(zstring_view name, std::span<zstring_view> entry_point_names);
+		CodesStages compile(zstring_view name, std::span<const zstring_view> entry_point_names);
 
 		vk::ShaderStageFlagBits stageCompat(SlangStage stage) {
 			using enum vk::ShaderStageFlagBits;
@@ -48,12 +51,7 @@ export namespace vkapp {
 			}
 		}
 	public:
-		struct EntryPointDescription {
-			zstring_view name;
-			std::span<const vk::DescriptorSetLayout> set_layouts = {};
-			std::span<const vk::PushConstantRange> push_constant_ranges = {};
-		};
-		std::vector<vk::ShaderEXT> load(vk::Device device, zstring_view name, std::span<EntryPointDescription> entry_point_descs);
+		std::pair<std::vector<PipelineShaderCreateInfo>, CodesStages> load(vk::Device device, zstring_view name, std::span<const zstring_view> entry_point_names);
 	};
 
 }

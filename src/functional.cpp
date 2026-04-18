@@ -156,7 +156,6 @@ std::pair<vk::Device, Queues> vkapp::createDeviceWithQueues(vk::PhysicalDevice p
 	vk::StructureChain create_info{
 		vk::DeviceCreateInfo({}, queue_create_infos, {}, extensions),
 		vk::PhysicalDeviceDynamicRenderingFeatures(true),
-		vk::PhysicalDeviceShaderObjectFeaturesEXT(true),
 		vk::PhysicalDeviceSynchronization2Features(true),
 		vk::PhysicalDeviceDescriptorIndexingFeatures()
 			.setShaderSampledImageArrayNonUniformIndexing(true)
@@ -168,8 +167,19 @@ std::pair<vk::Device, Queues> vkapp::createDeviceWithQueues(vk::PhysicalDevice p
 			.setDescriptorBindingStorageImageUpdateAfterBind(true),
 		vk::PhysicalDeviceBufferDeviceAddressFeatures(true),
 		vk::PhysicalDeviceHostImageCopyFeatures(true),
+		vk::PhysicalDeviceMaintenance5Features(true),
+		vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT(
+			true, true, true
+		),
+		vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT(
+			true, true, true, true, true, true, true, true,
+			true, true, true, true, true, true, true, true,
+			true, true, true, true, true, true, true, true,
+			true, true, true, true, true, true, true
+		),
+		vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT(true),
 	};
-	auto device = physical_device.createDevice(create_info.get<vk::DeviceCreateInfo>());
+	auto device = physical_device.createDevice(create_info.get());
 
 	std::ranges::transform(queues.family_indices, queues.queue_indices, queues.queues.begin(),
 		[&](auto family, auto queue) { return device.getQueue(family, queue); }

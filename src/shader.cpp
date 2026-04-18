@@ -21,7 +21,7 @@ ShaderSession::ShaderSession(std::span<const char* const> search_paths, std::spa
     };
 
     std::array target_descs = { slang::TargetDesc{
-        .format = SLANG_SPIRV, //_ASM (?)
+        .format = SLANG_SPIRV, // SLANG_SPRIV_ASM (?)
         .profile = global_session->findProfile("spirv_1_6"),
         .compilerOptionEntries = compiler_options.data(),
         .compilerOptionEntryCount = static_cast<std::uint32_t>(compiler_options.size())
@@ -37,7 +37,7 @@ ShaderSession::ShaderSession(std::span<const char* const> search_paths, std::spa
     check(global_session->createSession(session_desc, session.writeRef()), "unable to create slang session");
 }
 
-std::vector<std::pair<Slang::ComPtr<slang::IBlob>, SlangStage>> ShaderSession::compile(zstring_view name, std::span<zstring_view> entry_point_names) {
+ShaderSession::CodesStages ShaderSession::compile(zstring_view name, std::span<const zstring_view> entry_point_names) {
     Slang::ComPtr<slang::IBlob> diagnostics;
     auto diagnostics_error = [&] {
         if (not diagnostics)
@@ -83,44 +83,32 @@ std::vector<std::pair<Slang::ComPtr<slang::IBlob>, SlangStage>> ShaderSession::c
     return codes;
 }
 
-std::vector<vk::ShaderEXT> ShaderSession::load(vk::Device device, zstring_view name, std::span<EntryPointDescription> entry_point_descs) {
-    check(entry_point_descs.size() > 0, "entry points required");
-    std::vector entry_point_names(std::from_range, entry_point_descs | std::views::transform(&EntryPointDescription::name));
+std::pair<std::vector<ShaderSession::PipelineShaderCreateInfo>, ShaderSession::CodesStages> ShaderSession::load(vk::Device device, zstring_view name, std::span<const zstring_view> entry_point_names) {
+    auto codes_stages = compile(name, entry_point_names);
 
-    auto codes = compile(name, entry_point_names);
-    codes.emplace_back(nullptr, SLANG_STAGE_NONE);
-    std::array none = { EntryPointDescription{} };
+    auto code_bytes = [](Slang::ComPtr<slang::IBlob> blob) { 
+        return vk::ArrayProxyNoTemporaries(blob->getBufferSize() / 4, static_cast<const std::uint32_t*>(blob->getBufferPointer())); 
+    };
 
-    auto code_bytes = [](Slang::ComPtr<slang::IBlob> blob) { return vk::ArrayProxyNoTemporaries(blob->getBufferSize(), static_cast<const std::byte*>(blob->getBufferPointer())); };
-
-    // TODO[C++26]: replace with std::views::concat
     std::vector create_infos(std::from_range,
-        std::views::zip(
-            std::views::join(std::vector<std::span<EntryPointDescription>>{ entry_point_descs, none }),
-            codes
-        )
-        | std::views::pairwise_transform([&](const auto& current, const auto& next) {
-            auto [entry_point_desc, code] = current;
-            auto this_stage = stageCompat(code.second);
-            auto next_stage = stageCompat(std::get<1>(next).second);
-            auto create_flags = (this_stage & vk::ShaderStageFlagBits::eAllGraphics) ? vk::ShaderCreateFlagsEXT(vk::ShaderCreateFlagBitsEXT::eLinkStage) : vk::ShaderCreateFlagsEXT{};
-            return vk::ShaderCreateInfoEXT(
-                create_flags,
-                this_stage,
-                next_stage,
-                vk::ShaderCodeTypeEXT::eSpirv,
-                code_bytes(code.first),
-                "main",
-                entry_point_desc.set_layouts,
-                entry_point_desc.push_constant_ranges
-            );
+        codes_stages
+        | std::views::transform([&](const auto& code_stage) {
+            auto stage = stageCompat(code_stage.second);
+
+            return ShaderSession::PipelineShaderCreateInfo{
+                vk::PipelineShaderStageCreateInfo(
+                    {},
+                    stage,
+                    {},
+                    "main"
+                ),
+                vk::ShaderModuleCreateInfo(
+                    {},
+                    code_bytes(code_stage.first)
+                )
+            };
         })
     );
-
-
-    auto [result, shaders] = device.createShadersEXT(create_infos);
-    check(result == vk::Result::eSuccess, "failed to create shaders");
-    for (auto [shader, entry_point_desc] : std::views::zip(shaders, entry_point_descs))
-        setDebugName(device, shader, std::format("{}.{}", name, entry_point_desc.name));
-    return shaders;
+    
+    return { create_infos, std::move(codes_stages) };
 }

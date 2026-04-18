@@ -16,6 +16,8 @@ namespace vkapp {
 		void destroy() const;
 	};
 
+	class WindowSurface;
+
 	class Window : SDLGuard {
 	public:
 		SDL_Window* window;
@@ -26,12 +28,26 @@ namespace vkapp {
 
 		[[nodiscard]] std::span<const char* const> getInstanceExtensions() const;
 
-		vk::SurfaceKHR createSurface(vk::Instance instance);
-		void destroySurface(vk::Instance instance, vk::SurfaceKHR surface);
+		WindowSurface createSurface(vk::Instance instance);
 
 		[[nodiscard]] vk::Extent2D getWindowSize() const;
 
 		std::generator<SDL_Event> poll() const;
+	};
+
+	class WindowSurface {
+		vk::Instance instance;
+		vk::SurfaceKHR surface;
+
+		WindowSurface(vk::Instance instance, SDL_Window* window);
+
+	public:
+		~WindowSurface();
+
+		vk::SurfaceKHR operator*() const { return surface; }
+		operator vk::SurfaceKHR() const { return surface; }
+
+		friend Window;
 	};
 }
 
