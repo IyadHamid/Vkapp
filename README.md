@@ -58,7 +58,6 @@ This has these following dependencies that can be fetched from vcpkg (to be made
     ```
 
 ## TODOs
-- Replace shader modules with pipelines
 - Verify compatabilities with device
   - api version, present mode, swapchain format
 - Replace `vkapp::meta` with C++26 reflection
