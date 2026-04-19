@@ -299,7 +299,7 @@ namespace vkapp {
 		UniqueDeviceOwner unique_owner;
 
 		DescriptorManager desc_manager;
-		ShaderSession shader_compiler;
+		ShaderCompiler shader_compiler;
 
 		// Swapchain
 		vk::Format swapchain_format;

@@ -15,7 +15,7 @@ import :functional;
 export namespace vkapp {
 	using MacroDesc = slang::PreprocessorMacroDesc;
 
-	class ShaderSession {
+	class ShaderCompiler {
 	public:
 		using CodesStages = std::vector<std::pair<Slang::ComPtr<slang::IBlob>, SlangStage>>;
 		using PipelineShaderCreateInfo = vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::ShaderModuleCreateInfo>;
@@ -24,7 +24,7 @@ export namespace vkapp {
 		Slang::ComPtr<slang::ISession> session;
 
 	public:
-		ShaderSession(std::span<const char* const> search_paths, std::span<const MacroDesc> macros);
+		ShaderCompiler(std::span<const char* const> search_paths, std::span<const MacroDesc> macros);
 
 	private:
 		CodesStages compile(zstring_view name, std::span<const zstring_view> entry_point_names);

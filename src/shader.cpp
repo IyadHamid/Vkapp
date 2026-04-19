@@ -9,7 +9,7 @@ module vkapp;
 
 using namespace vkapp;
 
-ShaderSession::ShaderSession(std::span<const char* const> search_paths, std::span<const MacroDesc> macros) {
+ShaderCompiler::ShaderCompiler(std::span<const char* const> search_paths, std::span<const MacroDesc> macros) {
     SlangGlobalSessionDesc desc = {};
     check(slang::createGlobalSession(&desc, global_session.writeRef()), "unable to create slang global session");
     std::vector<slang::CompilerOptionEntry> compiler_options = {
@@ -37,7 +37,7 @@ ShaderSession::ShaderSession(std::span<const char* const> search_paths, std::spa
     check(global_session->createSession(session_desc, session.writeRef()), "unable to create slang session");
 }
 
-ShaderSession::CodesStages ShaderSession::compile(zstring_view name, std::span<const zstring_view> entry_point_names) {
+ShaderCompiler::CodesStages ShaderCompiler::compile(zstring_view name, std::span<const zstring_view> entry_point_names) {
     Slang::ComPtr<slang::IBlob> diagnostics;
     auto diagnostics_error = [&] {
         if (not diagnostics)
@@ -83,7 +83,7 @@ ShaderSession::CodesStages ShaderSession::compile(zstring_view name, std::span<c
     return codes;
 }
 
-std::pair<std::vector<ShaderSession::PipelineShaderCreateInfo>, ShaderSession::CodesStages> ShaderSession::load(vk::Device device, zstring_view name, std::span<const zstring_view> entry_point_names) {
+std::pair<std::vector<ShaderCompiler::PipelineShaderCreateInfo>, ShaderCompiler::CodesStages> ShaderCompiler::load(vk::Device device, zstring_view name, std::span<const zstring_view> entry_point_names) {
     auto codes_stages = compile(name, entry_point_names);
 
     auto code_bytes = [](Slang::ComPtr<slang::IBlob> blob) { 
@@ -95,7 +95,7 @@ std::pair<std::vector<ShaderSession::PipelineShaderCreateInfo>, ShaderSession::C
         | std::views::transform([&](const auto& code_stage) {
             auto stage = stageCompat(code_stage.second);
 
-            return ShaderSession::PipelineShaderCreateInfo{
+            return ShaderCompiler::PipelineShaderCreateInfo{
                 vk::PipelineShaderStageCreateInfo(
                     {},
                     stage,
