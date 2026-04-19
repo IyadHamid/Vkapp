@@ -10,8 +10,14 @@ export namespace vkapp {
 	template <std::unsigned_integral I = unsigned>
 	struct single_bit_t {
 		using type = I;
-		
+
 		type bit_shift;
+
+		constexpr single_bit_t(unsigned long long int b) :
+			bit_shift{ static_cast<type>(std::bit_width(b) - 1) }
+		{
+			// assert(std::has_single_bit(b));	
+		}
 
 		[[nodiscard]] constexpr type shift() const noexcept { return bit_shift; }
 		[[nodiscard]] constexpr type value() const noexcept { return 1 << bit_shift; }
@@ -22,12 +28,7 @@ export namespace vkapp {
 	using ubit_t = single_bit_t<unsigned>;
 
 	namespace literals {
-
-		constexpr ubit_t operator""_ub(unsigned long long int b) {
-			assert(std::has_single_bit(b));
-			return ubit_t{ static_cast<unsigned>(std::bit_width(b) - 1) };
-		}
-
+		constexpr ubit_t operator""_ub(unsigned long long int b) { return ubit_t(b); }
 	}
 }
 
