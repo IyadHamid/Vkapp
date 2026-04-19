@@ -75,7 +75,7 @@ namespace vkapp {
 
 		DescriptorsInfo* operator->() const { return info.operator->(); }
 
-		void update(std::uint32_t index, vk::ImageView view) const {
+		void updateWImage(std::uint32_t index, vk::ImageView view) const {
 			// Storage Image
 			vk::DescriptorImageInfo image_info(nullptr, view, vk::ImageLayout::eGeneral);
 			owner->updateDescriptorSets(
@@ -83,7 +83,7 @@ namespace vkapp {
 				{}
 			);
 		}
-		void update(std::uint32_t index, vk::ImageView view, vk::Sampler sampler) const {
+		void updateRImage(std::uint32_t index, vk::ImageView view, vk::Sampler sampler) const {
 			// Combined Image Sampler
 			vk::DescriptorImageInfo image_info(sampler, view, vk::ImageLayout::eShaderReadOnlyOptimal);
 			owner.device.updateDescriptorSets(
@@ -91,7 +91,7 @@ namespace vkapp {
 				{}
 			);
 		}
-		void update(std::uint32_t index, vk::Buffer buffer) const {
+		void updateBuffer(std::uint32_t index, vk::Buffer buffer) const {
 			// Uniform Buffer
 			vk::DescriptorBufferInfo buffer_info(buffer, 0u, vk::WholeSize);
 			owner.device.updateDescriptorSets(
@@ -99,7 +99,7 @@ namespace vkapp {
 				{}
 			);
 		}
-		void updateRWImage(std::uint32_t index, vk::ImageView view, vk::Sampler sampler) const { update(index, view); update(index, view, sampler); }
+		void updateRWImage(std::uint32_t index, vk::ImageView view, vk::Sampler sampler) const { updateWImage(index, view); updateRImage(index, view, sampler); }
 	};
 
 	template <typename T, std::size_t N>
