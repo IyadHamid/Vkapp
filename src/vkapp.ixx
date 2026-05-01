@@ -5,6 +5,7 @@ module;
 export module vkapp;
 
 export import :utils;
+export import :aabb;
 export import :io;
 export import :shader;
 export import :functional;

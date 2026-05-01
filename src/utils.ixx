@@ -247,7 +247,6 @@ export namespace vkapp {
 	};
 }
 
-
 namespace vkapp {
 	template <class T>
 	struct GlobalState {

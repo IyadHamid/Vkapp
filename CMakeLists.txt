@@ -31,6 +31,7 @@ target_sources(vkapp
 		FILES
 			"src/vkapp.ixx"
 			"src/utils.ixx"
+			"src/aabb.ixx"
 			"src/io.ixx"
 			"src/shader.ixx"
 			"src/functional.ixx"
