@@ -45,7 +45,7 @@ std::span<const char* const> Window::getInstanceExtensions() const {
 vk::Extent2D Window::getWindowSize() const {
 	int x, y;
 	SDL_GetWindowSizeInPixels(window, &x, &y);
-	[[assume(x >= 0 and y >= 0)]]
+	[[assume(x >= 0 and y >= 0)]];
 	return { static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y) };
 }
 

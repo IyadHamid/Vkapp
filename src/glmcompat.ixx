@@ -48,7 +48,10 @@ export namespace vkapp {
     }
 }
 
-export template <int N, typename T, glm::qualifier Q>
+export template <typename T, class CharT>
+struct std::formatter;
+
+template <int N, typename T, glm::qualifier Q>
 struct std::formatter<glm::vec<N, T, Q>> {
     using vec = glm::vec<N, T, Q>;
     using span = std::span<const T, N>;

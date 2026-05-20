@@ -20,10 +20,8 @@ import :device_owner;
 import :resource;
 
 namespace vkapp {
-
 	export class DescriptorManager {
 	public:
-
 		struct DescriptorsInfo {
 			vk::DescriptorPool pool;
 			vk::DescriptorSetLayout layout;

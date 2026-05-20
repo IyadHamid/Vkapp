@@ -26,8 +26,26 @@ namespace vkapp {
 }
 
 namespace vkapp {
+	struct DeviceOwner;
+
+	template <typename T>
+	struct Deleter {
+		DeviceOwner owner;
+		void operator()(T* ptr) noexcept {
+			if (not ptr)
+				return;
+			owner.device.waitIdle();
+			if constexpr (requires { owner.destroy(*ptr); }) {
+				owner.destroy(*ptr);
+			}
+			else {
+				owner.destroyAll(*ptr);
+			}
+			delete ptr;
+		}
+	};
 	export template <typename T>
-	struct Destroyer;
+	using Unique = std::unique_ptr<T, Deleter<T>>;
 
 	export struct DeviceOwner {
 		vk::Device device;
@@ -49,36 +67,20 @@ namespace vkapp {
 		}
 		void moveAndNameAs(std::string_view name, std::ranges::range auto&& out, std::ranges::input_range auto&& in) { std::ranges::move(in, out.begin()); nameAs(name, std::forward<decltype(out)>(out)); }
 		void generateAndNameAs(std::string_view name, std::ranges::range auto&& out, std::invocable auto&& f) { std::ranges::generate(out, f); nameAs(name, std::forward<decltype(out)>(out)); }
-		
-		template <typename T>
-		void destroy(T& object) requires requires { Destroyer<T>{}; } { Destroyer<T>{}(*this, object); }
 
-		void destroyAll(auto&& object) { destroyRecursive(*this, std::forward<decltype(object)>(object)); }
+		template <typename T>
+		void destroy(T& object) requires requires { device.destroy(object); } { device.destroy(object); }
+
+		template <typename T>
+		void destroy(T& object) requires requires { object.destroy(*this); } { object.destroy(*this); }
+
+		void destroyAll(auto& object) { destroyRecursive(*this, object); }
 
 	public:
-		template <typename T>
-		struct Deleter {
-			DeviceOwner owner;
-			void operator()(T* ptr) noexcept {
-				if (not ptr)
-					return;
-				owner.device.waitIdle();
-				if constexpr (requires { owner.destroy(*ptr); }) {
-					owner.destroy(*ptr);
-				}
-				else {
-					owner.destroyAll(*ptr);
-				}
-				delete ptr;
-			}
-		};
 		template <typename T>
 		[[nodiscard]] auto deleter() { return Deleter<T>{ *this }; }
 
 	public:
-		template <typename T>
-		using Unique = std::unique_ptr<T, Deleter<T>>;
-
 
 		template <typename T>
 		[[nodiscard]] auto makeUnique() { return Unique<T>(nullptr, deleter<T>()); }
@@ -100,14 +102,4 @@ namespace vkapp {
 		}
 		operator DeviceOwner() const { return *this; }
 	};
-
-
-	export template <typename T>
-	using Unique = DeviceOwner::Unique<T>;
-
-	export template <typename T> requires requires { vk::Device{}.destroy(T{}); }
-	struct Destroyer<T> {
-		static void operator()(DeviceOwner owner, T& object) { owner.device.destroy(object); }
-	};
-
 }

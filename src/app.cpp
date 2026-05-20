@@ -181,24 +181,17 @@ ImGuiState::ImGuiState(Application& app, vk::Format depth_format, vk::Format ste
 
 	init_info.MinImageCount = 2;
 	init_info.ImageCount = app.frame_count;
-	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-	init_info.DescriptorPoolSize = 2;
+	init_info.DescriptorPoolSize = 8;
 
 	std::array color_attachment_formats = { app.swapchain->format };
 	init_info.UseDynamicRendering = true;
-	init_info.PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo({}, color_attachment_formats, depth_format, stencil_format);
+	init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	init_info.PipelineInfoMain.PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo({}, color_attachment_formats, depth_format, stencil_format);
 
 	static auto imguiCheck = [](VkResult result) { check(result == std::to_underlying(vk::Result::eSuccess), "ImGui Vulkan error"); };
-	// VULKAN_HPP_DEFAULT_DISPATCHER
-	// init_info.Allocator = YOUR_ALLOCATOR;
-	// vk::AllocationCallbacks allocator = {};
-	// init_info.CheckVkResultFn = imguiCheck;
-	ImGui_ImplVulkan_Init(&init_info);
 
-	ImGui_ImplVulkan_CreateFontsTexture();
-	// (your code submit a queue)
-	ImGui_ImplVulkan_DestroyFontsTexture();
+	ImGui_ImplVulkan_Init(&init_info);
 }
 
 ImGuiState::~ImGuiState() {

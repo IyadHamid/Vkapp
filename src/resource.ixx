@@ -190,6 +190,14 @@ namespace vkapp {
 			full_view = createImageView(owner, image_view_type);
 		}
 
+		void destroy(DeviceOwner owner) {
+			if (full_view)
+				owner.device.destroyImageView(full_view);
+			if (image)
+				owner.allocator.destroyImage(image, allocation);
+			*this = {};
+		}
+
 		[[nodiscard]] vk::ImageSubresourceRange getRange() const {
 			return vk::ImageSubresourceRange(getImageAspect(format), 0u, extent.mip_levels, 0u, extent.array_layers);
 		}
@@ -236,16 +244,6 @@ namespace vkapp {
 				vk::AttachmentStoreOp::eStore,
 				clear_value
 			);
-		}
-	};
-	export template<>
-	struct Destroyer<Image> {
-		static void operator()(DeviceOwner owner, Image& image) {
-			if (image.full_view)
-				owner.device.destroyImageView(image.full_view);
-			if (image.image)
-				owner.allocator.destroyImage(image.image, image.allocation);
-			image = {};
 		}
 	};
 
@@ -309,6 +307,12 @@ namespace vkapp {
 			);
 		}
 
+		void destroy(DeviceOwner owner) {
+			if (buffer)
+				owner.allocator.destroyBuffer(buffer, allocation);
+			*this = {};
+		}
+
 		[[nodiscard]] BufferRange getRange() const { return { 0, size }; }
 
 		[[nodiscard]] vk::BufferMemoryBarrier2 createBarrier(const MemoryUsage& src, const MemoryUsage& dst, std::uint32_t src_family_index = vk::QueueFamilyIgnored, std::uint32_t dst_family_index = vk::QueueFamilyIgnored) const {
@@ -323,14 +327,6 @@ namespace vkapp {
 		void flush(DeviceOwner owner) { owner.allocator.flushAllocation(allocation, 0, size); }
 
 	}; 
-	export template<>
-	struct Destroyer<Buffer> {
-		static void operator()(DeviceOwner owner, Buffer& buffer) {
-			if (buffer.buffer)
-				owner.allocator.destroyBuffer(buffer.buffer, buffer.allocation);
-			buffer = {};
-		}
-	};
 
 	export template <class... Barriers>
 		requires ((

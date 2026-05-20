@@ -7,8 +7,6 @@ module;
 
 module vkapp;
 
-VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
-
 using namespace vkapp;
 
 // https://github.com/KhronosGroup/Vulkan-Hpp/blob/ee361cf520a3344decddf0b5c6c0d74fe50079eb/samples/EnableValidationWithCallback/EnableValidationWithCallback.cpp#L54

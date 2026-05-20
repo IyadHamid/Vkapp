@@ -72,7 +72,10 @@ export namespace vkapp {
 
 }
 
-export template <class Char>
+export template <typename T, class CharT>
+struct std::formatter;
+
+template <class Char>
 struct std::formatter<vkapp::basic_zstring_view<Char>> : std::formatter<std::basic_string_view<Char>> {};
 
 export namespace vkapp {

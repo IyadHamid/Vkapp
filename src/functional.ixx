@@ -1,7 +1,6 @@
 module;
 
 #include "log.h"
-#include <vulkan/vulkan_format_traits.hpp>
 
 export module vkapp:functional;
 
@@ -10,11 +9,6 @@ import vulkan;
 import vk_mem_alloc;
 
 import :utils;
-
-namespace vk::detail {
-	// #include <vulkan/vulkan_hpp_macros.hpp>
-	export extern DispatchLoaderDynamic defaultDispatchLoaderDynamic;
-}
 
 namespace vkapp {
 	export template <typename T>
