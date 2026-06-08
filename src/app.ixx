@@ -402,7 +402,6 @@ namespace vkapp {
 
 		void resize();
 
-		glm::vec2 resolutionAsFloat() const { return glm::vec2{ resolution.width, resolution.height }; }
 #pragma endregion
 #pragma region pipeline management
 	public:
