@@ -149,6 +149,32 @@ namespace vkapp {
 		}
 	};
 
+	export vk::PipelineColorBlendAttachmentState overwriteBlendAttachment() {
+		return vk::PipelineColorBlendAttachmentState(
+			true,
+			vk::BlendFactor::eSrcAlpha,
+			vk::BlendFactor::eZero,
+			vk::BlendOp::eAdd,
+			vk::BlendFactor::eOne,
+			vk::BlendFactor::eZero,
+			vk::BlendOp::eAdd,
+			vk::FlagTraits<vk::ColorComponentFlagBits>::allFlags
+		);
+	}
+
+	export vk::PipelineColorBlendAttachmentState alphaBlendAttachment() {
+		return vk::PipelineColorBlendAttachmentState(
+			true,
+			vk::BlendFactor::eSrcAlpha,
+			vk::BlendFactor::eOneMinusSrcAlpha,
+			vk::BlendOp::eAdd,
+			vk::BlendFactor::eOne,
+			vk::BlendFactor::eOneMinusSrcAlpha,
+			vk::BlendOp::eAdd,
+			vk::FlagTraits<vk::ColorComponentFlagBits>::allFlags
+		);
+	}
+
 
 	export template <typename Arg, vk::PipelineBindPoint BindPoint>
 		requires (std::is_empty_v<Arg> or sizeof(Arg) % 4 == 0)
@@ -216,31 +242,28 @@ namespace vkapp {
 		}
 
 		void draw(vk::CommandBuffer cmd) {
-			// Input assembly settings
+			// input assembly
 			cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
 			cmd.setPrimitiveRestartEnable(false);
 
-			// Rasterization settings
+			// rasterization
 			cmd.setRasterizerDiscardEnable(false);
 			cmd.setCullMode(vk::CullModeFlagBits::eNone);
 			cmd.setFrontFace(vk::FrontFace::eClockwise);
 			cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
 			cmd.setDepthBiasEnable(false);
 
-			// Multisample settings
+			// multisample
 			cmd.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 			cmd.setSampleMaskEXT(vk::SampleCountFlagBits::e1, vk::SampleMask{ 1 });
 			cmd.setAlphaToCoverageEnableEXT(false);
 
-			// Depth stencil settings
+			// depth stencil
 			cmd.setDepthWriteEnable(false);
 			cmd.setDepthTestEnable(false);
 			cmd.setStencilTestEnable(false);
 
-			// Color blend settings
-			cmd.setColorBlendEnableEXT(0, false);
-			cmd.setColorWriteMaskEXT(0, vk::FlagTraits<vk::ColorComponentFlagBits>::allFlags);
-
+			// vertex input
 			cmd.setVertexInputEXT(vk::VertexInputBindingDescription2EXT(0, sizeof(Vertex), vk::VertexInputRate::eVertex, 1u), getAttributes());
 			cmd.bindVertexBuffers(0, { vertex_buffer->buffer }, { 0 });
 
