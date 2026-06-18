@@ -132,7 +132,7 @@ namespace vkapp::io {
 	public:
 
 		EventQueue event(const SDL_KeyboardEvent& e) { return not e.repeat ? buttonEvent(e.scancode, e.down, e.timestamp) : EventQueue{}; }
-		EventQueue event(const SDL_MouseButtonEvent& e) { return buttonEvent(MouseButton(e.button), e.down, e.timestamp); }
+		EventQueue event(const SDL_MouseButtonEvent& e) { return buttonEvent(MouseButton(e.button - 1), e.down, e.timestamp); }
 		EventQueue event(const SDL_MouseMotionEvent& e) { mouse_motion = glm::vec2(e.xrel, e.yrel); return axisEvent(MouseMove::X, MouseMove::Y, mouse_motion, e.timestamp); }
 		EventQueue event(const SDL_MouseWheelEvent& e) { mouse_wheel = glm::vec2(e.x, e.y); return axisEvent(MouseWheel::X, MouseWheel::Y, mouse_wheel, e.timestamp); }
 		EventQueue event(const SDL_Event& e) {
@@ -214,7 +214,7 @@ namespace vkapp {
 		bool testModifiers(const io::Combo& combo) const { return std::ranges::all_of(combo.modifiers, [&](auto mod) { return inputHeld(mod); }); }
 
 		void incrementClickCount(InputMultiClickInfo& info, std::chrono::nanoseconds timestamp) {
-			bool is_multiclick = timestamp- info.last_timestamp <= multi_click_duration;
+			bool is_multiclick = timestamp - info.last_timestamp <= multi_click_duration;
 			info.count = is_multiclick ? info.count + 1 : 1;
 			info.last_timestamp = timestamp;
 		}
