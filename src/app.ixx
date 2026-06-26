@@ -234,7 +234,7 @@ namespace vkapp {
 			Vertex{ { -1.f,  3.f } },
 		};
 
-		Unique<Buffer> vertex_buffer;
+		Unique<Buffer<Vertex>> vertex_buffer;
 	public:
 		explicit ScreenTriangle(DeviceOwner owner) :
 			vertex_buffer(owner.makeUniqueWithName("ScreenTriangle.vertex_buffer", Buffer(owner, std::span<const Vertex>(vertices), vk::BufferUsageFlagBits::eVertexBuffer)))
@@ -265,7 +265,7 @@ namespace vkapp {
 
 			// vertex input
 			cmd.setVertexInputEXT(vk::VertexInputBindingDescription2EXT(0, sizeof(Vertex), vk::VertexInputRate::eVertex, 1u), getAttributes());
-			cmd.bindVertexBuffers(0, { vertex_buffer->buffer }, { 0 });
+			cmd.bindVertexBuffers(0, { vertex_buffer->buffer() }, {0});
 
 			cmd.draw(3u, 1u, 0u, 0u);
 		}

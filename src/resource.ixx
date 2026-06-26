@@ -104,7 +104,16 @@ namespace vkapp {
 		};
 	}
 
+	export template <typename T>
+	struct DevicePtr {
+		vk::DeviceAddress address;
 
+		friend DevicePtr operator+(DevicePtr ptr, std::integral auto offset) { return { ptr.address + offset }; }
+		friend DevicePtr operator+(std::integral auto offset, DevicePtr ptr) { return { ptr.address + offset }; }
+
+		friend DevicePtr operator-(DevicePtr ptr, std::integral auto offset) { return { ptr.address - offset }; }
+	};
+	
 
 	vk::ImageAspectFlags getImageAspect(vk::Format format) {
 		using enum vk::ImageAspectFlagBits;
@@ -247,39 +256,45 @@ namespace vkapp {
 		}
 	};
 
-	export struct Buffer {
-		vk::Buffer buffer;
-		vma::Allocation allocation;
-		vk::DeviceAddress address;
-		vk::DeviceSize size;
-		void* mapped_data = nullptr;
+	export template <typename T>
+	struct Buffer {
+		using element_type = T;
 
+	protected:
+		static constexpr std::size_t element_size = sizeof(element_type);
+
+		vk::Buffer handle;
+		vma::Allocation allocation;
+		vk::DeviceAddress device_address;
+		std::size_t count;
+		element_type* mapped_data = nullptr;
+
+	public:
 		Buffer() = default;
 		Buffer(
 			DeviceOwner owner,
-			vk::DeviceSize size,
+			std::size_t count,
 			vk::BufferUsageFlags usage_flags = vk::BufferUsageFlagBits::eStorageBuffer,
 			vma::AllocationCreateFlags alloc_flags = {},
 			vma::MemoryUsage usage = vma::MemoryUsage::eAuto
-		) : size{ size } {
+		) : count{ count } {
 			vma::AllocationInfo alloc_info;
-			std::tie(allocation, buffer) = owner.allocator.createBuffer(
-				vk::BufferCreateInfo({}, size, usage_flags | vk::BufferUsageFlagBits::eShaderDeviceAddress),
+			std::tie(allocation, handle) = owner.allocator.createBuffer(
+				vk::BufferCreateInfo({}, sizeBytes(), usage_flags | vk::BufferUsageFlagBits::eShaderDeviceAddress),
 				vma::AllocationCreateInfo(alloc_flags, usage),
 				alloc_info
 			);
-			address = owner.device.getBufferAddress(vk::BufferDeviceAddressInfo(buffer));
+			device_address = owner.device.getBufferAddress(vk::BufferDeviceAddressInfo(handle));
 			if (alloc_info.pMappedData)
-				mapped_data = alloc_info.pMappedData;
+				mapped_data = static_cast<element_type*>(alloc_info.pMappedData);
 		}
 
-		template <typename T>
-		Buffer(DeviceOwner owner, std::span<const T> data, vk::BufferUsageFlags usage_flags = vk::BufferUsageFlagBits::eStorageBuffer) : 
+		Buffer(DeviceOwner owner, std::span<const element_type> data, vk::BufferUsageFlags usage_flags = vk::BufferUsageFlagBits::eStorageBuffer) :
 			Buffer(owner, data.size_bytes(), usage_flags, vma::AllocationCreateFlagBits::eHostAccessSequentialWrite)
 		{
 			owner.allocator.copyMemoryToAllocation(data.data(), allocation, 0, data.size_bytes());
 		}
-		template <typename T>
+
 		static Buffer unmapped(
 			DeviceOwner owner,
 			vk::DeviceSize size,
@@ -287,10 +302,9 @@ namespace vkapp {
 			vma::AllocationCreateFlags alloc_flags = {},
 			vma::MemoryUsage usage = vma::MemoryUsage::eAuto
 		) {
-			return Buffer(owner, size * sizeof(T), usage_flags, alloc_flags, usage);
+			return Buffer(owner, size, usage_flags, alloc_flags, usage);
 		}
 
-		template <typename T>
 		static Buffer mapped(
 			DeviceOwner owner,
 			std::size_t size,
@@ -300,7 +314,7 @@ namespace vkapp {
 		) {
 			return Buffer(
 				owner, 
-				size * sizeof(T), 
+				size, 
 				usage_flags, 
 				other_alloc_flags | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite | vma::AllocationCreateFlagBits::eMapped, 
 				usage
@@ -308,23 +322,30 @@ namespace vkapp {
 		}
 
 		void destroy(DeviceOwner owner) {
-			if (buffer)
-				owner.allocator.destroyBuffer(buffer, allocation);
+			if (handle)
+				owner.allocator.destroyBuffer(handle, allocation);
 			*this = {};
 		}
 
-		[[nodiscard]] BufferRange getRange() const { return { 0, size }; }
+		[[nodiscard]] std::size_t size() const { return count; }
+		[[nodiscard]] std::size_t sizeBytes() const { return count * element_size; }
+		[[nodiscard]] BufferRange getRange() const { return { 0, sizeBytes() }; }
+
+		[[nodiscard]] vk::Buffer buffer() const { return handle; }
+		[[nodiscard]] vkapp::DevicePtr<element_type> ptr() const { return { device_address }; }
 
 		[[nodiscard]] vk::BufferMemoryBarrier2 createBarrier(const MemoryUsage& src, const MemoryUsage& dst, std::uint32_t src_family_index = vk::QueueFamilyIgnored, std::uint32_t dst_family_index = vk::QueueFamilyIgnored) const {
-			return vkapp::createBarrier(buffer, getRange(), src, dst, src_family_index, dst_family_index);
+			return vkapp::createBarrier(handle, getRange(), src, dst, src_family_index, dst_family_index);
 		}
 
-		template <typename T>
-		[[nodiscard]] std::span<T> mapped(std::size_t offset = 0, std::size_t count = std::dynamic_extent) { 
-			return std::span(reinterpret_cast<T*>(static_cast<std::byte*>(mapped_data) + offset), std::min((size - offset) / sizeof(T), count)); 
-		}
+		[[nodiscard]] std::span<element_type> mapped() { return std::span(mapped_data, size());   }
 
-		void flush(DeviceOwner owner) { owner.allocator.flushAllocation(allocation, 0, size); }
+		void flush(DeviceOwner owner) { 
+			owner.allocator.flushAllocation(allocation, 0, sizeBytes()); 
+		}
+		void flush(DeviceOwner owner, std::size_t offset, std::size_t flush_count) { 
+			owner.allocator.flushAllocation(allocation, offset * element_size, flush_count); 
+		}
 
 	}; 
 
@@ -388,7 +409,8 @@ namespace vkapp {
 		setDebugName(device, image.image, std::format("{}.image", name));
 		setDebugName(device, image.full_view, std::format("{}.full_view", name));
 	}
-	export void setDebugName(vk::Device device, const Buffer& buffer, zstring_view name) {
-		setDebugName(device, buffer.buffer, std::format("{}.buffer", name));
+	export template <typename T>
+	void setDebugName(vk::Device device, const Buffer<T>& buffer, zstring_view name) {
+		setDebugName(device, buffer.buffer(), std::format("{}.buffer", name));
 	}
 }
