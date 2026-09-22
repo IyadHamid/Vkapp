@@ -6,7 +6,6 @@ module;
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_vulkan.h>
 
-
 module vkapp;
 
 using namespace vkapp;
@@ -41,9 +40,10 @@ Application::Application(
 	physical_device{ [&] {
 		const auto& physical_devices = instance->enumeratePhysicalDevices();
 
-		// TODO[algo]: select physical device
+		// TODO[refactor]: expose selecting physical device
 		auto it = std::ranges::find_if(physical_devices, [](auto pd) {
-			return pd.getProperties().apiVersion >= api_version and pd.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
+			auto props = pd.getProperties2().properties;
+			return props.apiVersion >= api_version and props.deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
 		});
 		check(it != physical_devices.end(), "no valid physical devices");
 		return *it;
@@ -52,7 +52,6 @@ Application::Application(
 	unique_owner{ [&] {
 		std::vector<const char*> extensions{
 			vk::KHRSwapchainExtensionName,
-			vk::KHRMaintenance5ExtensionName,
 			vk::EXTExtendedDynamicState3ExtensionName,
 			vk::EXTColorWriteEnableExtensionName,
 			vk::EXTVertexInputDynamicStateExtensionName,
@@ -87,7 +86,7 @@ Application::Application(
 	}() }
 {
 	SPDLOG_INFO("created application \"{}\" {}", app_name, app_version);
-	SPDLOG_INFO("created device on \"{}\"", std::string_view(physical_device.getProperties().deviceName));
+	SPDLOG_INFO("created device on \"{}\"", std::string_view(physical_device.getProperties2().properties.deviceName));
 
 	setFrameCount(frame_count);
 }

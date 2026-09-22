@@ -106,8 +106,10 @@ std::pair<vk::Device, Queues> vkapp::createDeviceWithQueues(vk::PhysicalDevice p
 	check(physical_device, "physical device not valid");
 	Queues queues;
 
-	auto is_graphics = [&](const QueueFamilyInfo& info) -> bool { return static_cast<bool>(info.second.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute)); };
-	auto is_transfer = [&](const QueueFamilyInfo& info) -> bool { return static_cast<bool>(info.second.queueFlags & (vk::QueueFlagBits::eTransfer)) and not is_graphics(info); };
+	auto family_props = [](const QueueFamilyInfo& info) { return info.second.queueFamilyProperties.queueFlags; };
+
+	auto is_graphics = [&](const QueueFamilyInfo& info) -> bool { return static_cast<bool>(family_props(info) & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute)); };
+	auto is_transfer = [&](const QueueFamilyInfo& info) -> bool { return static_cast<bool>(family_props(info) & (vk::QueueFlagBits::eTransfer)) and not is_graphics(info); };
 	auto is_presents = [&](const QueueFamilyInfo& info) -> bool { return not optional_surface or physical_device.getSurfaceSupportKHR(info.first, optional_surface); };
 
 	auto g_family_opt = findQueueFamilyIndex(physical_device, is_graphics);
@@ -176,6 +178,7 @@ std::pair<vk::Device, Queues> vkapp::createDeviceWithQueues(vk::PhysicalDevice p
 			true, true, true, true, true, true, true
 		),
 		vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT(true),
+		vk::PhysicalDeviceShaderFloat16Int8Features().setShaderInt8(true),
 	};
 	auto device = physical_device.createDevice(create_info.get());
 

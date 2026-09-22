@@ -72,10 +72,10 @@ export namespace vkapp {
 		return enabled;
 	}
 
-	using QueueFamilyInfo = std::pair<std::uint32_t, const vk::QueueFamilyProperties&>;
+	using QueueFamilyInfo = std::pair<std::uint32_t, const vk::QueueFamilyProperties2&>;
 
 	std::optional<std::uint32_t> findQueueFamilyIndex(vk::PhysicalDevice physical_device, std::invocable<const QueueFamilyInfo&> auto&& condition) {
-		auto properties = physical_device.getQueueFamilyProperties();
+		auto properties = physical_device.getQueueFamilyProperties2();
 		auto view = std::views::zip(std::views::iota(0u), properties);
 		auto iter = std::ranges::find_if(view, condition);
 		if (iter == view.end())
