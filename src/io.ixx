@@ -176,7 +176,18 @@ namespace vkapp {
 	class InputManager {
 	public:
 		using axis_type = AxisT;
-	protected:
+
+		static constexpr auto default_held_threshold = 0.1f;
+		static constexpr auto default_multi_click_duration = 300ms;
+		static constexpr auto immediate_group = -1uz;
+
+
+		struct ControlEvent {
+			axis_type axis;
+			float value;
+			std::chrono::nanoseconds timestamp;
+		};
+	private:
 		struct AxisControl {
 			std::vector<io::Combo> combos;
 			std::vector<std::size_t> active_combos = {};
@@ -192,38 +203,33 @@ namespace vkapp {
 			io::Clicks count = 1;
 			std::vector<ComboLookup> combos;
 		};
-	public:
-		struct ControlEvent {
-			axis_type axis;
-			float value;
-			std::chrono::nanoseconds timestamp;
-		};
-	protected:
+
+	private:
 		io::InputState state;
 
 		std::unordered_map<axis_type, AxisControl> axis_controls = {};
 		std::unordered_map<io::Input, InputMultiClickInfo> input_lookup = {};
 
-		std::chrono::nanoseconds multi_click_duration = 300ms;
-		float held_threshold = 0.1f;
+		std::chrono::nanoseconds multi_click_duration = default_multi_click_duration;
+		float held_threshold = default_held_threshold;
 
 		std::vector<std::deque<ControlEvent>> events = { {} };
 		std::mutex event_mutex;
 
-		bool inputHeld(io::Input input) const { return std::abs(state.value(input)) > held_threshold; }
-		bool testModifiers(const io::Combo& combo) const { return std::ranges::all_of(combo.modifiers, [&](auto mod) { return inputHeld(mod); }); }
+		[[nodiscard]] bool inputHeld(io::Input input) const { return std::abs(state.value(input)) > held_threshold; }
+		[[nodiscard]] bool testModifiers(const io::Combo& combo) const { return std::ranges::all_of(combo.modifiers, [&](auto mod) { return inputHeld(mod); }); }
 
 		void incrementClickCount(InputMultiClickInfo& info, std::chrono::nanoseconds timestamp) {
 			bool is_multiclick = timestamp - info.last_timestamp <= multi_click_duration;
 			info.count = is_multiclick ? info.count + 1 : 1;
 			info.last_timestamp = timestamp;
 		}
-	public:
 
+	public:
 		InputManager() = default;
 
-		float value(axis_type axis) { 
-			AxisControl& control = axis_controls.at(axis);
+		[[nodiscard]] float value(axis_type axis) const {
+			const AxisControl& control = axis_controls.at(axis);
 			for (auto index : control.active_combos | std::views::reverse) {
 				const io::Combo& combo = control.combos[index];
 				if (testModifiers(combo))
@@ -231,16 +237,17 @@ namespace vkapp {
 			}
 			return 0.f;
 		}
-		float operator[](axis_type axis) { return value(axis); }
-		bool held(axis_type axis, float tolerance = 0.f) { return std::abs(value(axis)) > tolerance; }
+		[[nodiscard]] float operator[](axis_type axis) const { return value(axis); }
+		[[nodiscard]] bool held(axis_type axis, float threshold = 0.f) const { return std::abs(value(axis)) > threshold; }
 
 		template <typename... Axes> requires (sizeof...(Axes) > 1)
-		glm::vec<sizeof...(Axes), float> operator[](Axes... axes) { return { value(axes)... }; }
+		[[nodiscard]] glm::vec<sizeof...(Axes), float> operator[](Axes... axes) const { return { value(axes)... }; }
 
 		void tickgroup(std::size_t group, std::span<axis_type> axes) {
 			for (auto axis : axes)
 				axis_controls[axis].tickgroup = group;
-			events.resize(group + 1);
+			if (group != immediate_group, events.size() < group + 1)
+				events.resize(group + 1);
 		}
 		void tickgroup(std::size_t group, axis_type axis) { tickgroup(group, {{ axis }}); }
 
@@ -249,15 +256,14 @@ namespace vkapp {
 		void unbindAll(axis_type axis);
 		void refresh();
 
-		void process(SDL_Event event);
+		std::deque<ControlEvent> process(SDL_Event event);
 
 		std::deque<ControlEvent> flush(std::size_t group = 0) {
 			std::scoped_lock(event_mutex);
 			return std::exchange(events[group], {});
 		}
 
-
-		glm::vec2 mousePosition() const { return state.mousePosition(); };
+		[[nodiscard]] glm::vec2 mousePosition() const { return state.mousePosition(); };
 	};
 }
 
@@ -302,7 +308,9 @@ void InputManager<AxisT>::refresh() {
 }
 
 template <typename AxisT>
-void InputManager<AxisT>::process(SDL_Event event) {
+auto InputManager<AxisT>::process(SDL_Event event) -> std::deque<ControlEvent> {
+	std::deque<ControlEvent> immediate;
+
 	std::scoped_lock(event_mutex);
 	for (auto&& e : state.event(event)) {
 		auto it = input_lookup.find(e.input);
@@ -332,16 +340,21 @@ void InputManager<AxisT>::process(SDL_Event event) {
 					if (testModifiers(combo))
 						scale = combo.scale;
 				}
-				if (scale)
-					events[control.tickgroup].push_back({ axis, *scale * e.value, e.timestamp });
+				if (scale) {
+					ControlEvent control_event{ axis, *scale * e.value, e.timestamp };
+					if (control.tickgroup == immediate_group)
+						immediate.push_back(control_event);
+					else
+						events[control.tickgroup].push_back(control_event);
+				}
 			}
 		}
 		else /* released */ {
-			for (const auto& lookup : info.combos) {
-				AxisControl& control = axis_controls[lookup.axis];
-				std::erase(control.active_combos, lookup.index);
+			for (const auto& axis_lookups : info.combos) {
+				AxisControl& control = axis_controls[axis_lookups.axis];
+				std::erase(control.active_combos, axis_lookups.index);
 			}
-
 		}
 	}
+	return immediate;
 }
