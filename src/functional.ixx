@@ -102,7 +102,7 @@ export namespace vkapp {
 
 	vk::DebugUtilsMessengerEXT createDebugMessenger(vk::Instance instance);
 
-	void recreateSwapchain(
+	bool recreateSwapchain(
 		vk::PhysicalDevice physical_device, 
 		vk::Device device, 
 		const Queues& queues, 

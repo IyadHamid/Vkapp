@@ -345,6 +345,7 @@ namespace vkapp {
 		std::unordered_map<std::uint64_t, Unique<vk::PipelineLayout>> pipeline_layouts = {};
 
 		// Application management
+		bool prevent_rendering = false;
 		std::atomic_bool do_quit = false;
 		std::move_only_function<void(Application&, vk::Extent2D)> on_resize = nullptr;
 

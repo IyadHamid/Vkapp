@@ -117,21 +117,37 @@ const Image& Application::acquireFrame(vk::Semaphore semaphore) {
 }
 
 void Application::present(vk::Semaphore wait) {
-	auto _ = queues.queues[Queues::Presents].presentKHR(vk::PresentInfoKHR(
-		{ wait },
-		swapchain->swapchain,
-		swapchain_image_index,
-		{}
-	));
+	vk::Result result;
+	try {
+		result = queues.queues[Queues::Presents].presentKHR(vk::PresentInfoKHR(
+			{ wait },
+			swapchain->swapchain,
+			swapchain_image_index,
+			{}
+		));
+	}
+	catch (vk::OutOfDateKHRError const&) {
+		result = vk::Result::eErrorOutOfDateKHR;
+	}
+
+	if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR)
+		resize();
+	else
+		check(result == vk::Result::eSuccess, "failed to present");
 	if (++frame_index >= frame_count)
 		frame_index = 0;
 }
 
 void Application::resize() {
-	owner()->waitIdle();
+
 	resolution = window.getWindowSize();
+
+	owner()->waitIdle();
 	swapchain = owner().makeUnique(Swapchain());
-	recreateSwapchain(physical_device, owner(), queues, surface, swapchain_format, present_mode, resolution, frame_count, *swapchain);
+	prevent_rendering = not recreateSwapchain(physical_device, owner(), queues, surface, swapchain_format, present_mode, resolution, frame_count, *swapchain);
+	if (prevent_rendering)
+		return;
+
 	owner().nameAs("swapchain.images", swapchain->images);
 	owner().nameAs("swapchain.image_views", swapchain->image_views);
 
@@ -155,7 +171,7 @@ std::generator<SDL_Event> Application::poll() {
 			break;
 		}
 	}
-	if (do_resize)
+	if (do_resize or prevent_rendering)
 		resize();
 }
 

@@ -202,7 +202,7 @@ vk::DebugUtilsMessengerEXT vkapp::createDebugMessenger(vk::Instance instance) {
 	));
 }
 
-void vkapp::recreateSwapchain(
+bool vkapp::recreateSwapchain(
 	vk::PhysicalDevice physical_device, 
 	vk::Device device, 
 	const Queues& queues, 
@@ -222,11 +222,16 @@ void vkapp::recreateSwapchain(
 	// swapchain.format = format;
 
 	auto capabilities = physical_device.getSurfaceCapabilitiesKHR(surface);
-	auto clamp = [](const vk::Extent2D& x, const vk::Extent2D& min, const vk::Extent2D& max) { return vk::Extent2D(std::clamp(x.width, min.width, max.width), std::clamp(x.height, min.height, max.height)); };
+	auto clamp = [](const vk::Extent2D& x, const vk::Extent2D& min, const vk::Extent2D& max) { 
+		return vk::Extent2D(std::clamp(x.width, min.width, max.width), std::clamp(x.height, min.height, max.height)); 
+	};
 	// TODO[add swapchain recreation]
 	auto extent = (capabilities.currentExtent.width == std::numeric_limits<std::uint32_t>::max())
 		? clamp(resolution, capabilities.minImageExtent, capabilities.maxImageExtent)
 		: capabilities.currentExtent;
+
+	if (extent.width == 0 or extent.height == 0)
+		return false;
 
 	auto pre_transform = [&] {
 		using enum vk::SurfaceTransformFlagBitsKHR;
@@ -276,6 +281,8 @@ void vkapp::recreateSwapchain(
 	swapchain.image_views = std::vector(std::from_range,
 		swapchain.images | std::views::transform(create_image_view)
 	);
+
+	return true;
 }
 
 
