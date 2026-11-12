@@ -57,7 +57,7 @@ namespace vkapp {
 		const vk::Device* operator->() const { return &device; }
 
 	public:
-		auto&& nameAs(zstring_view name, auto&& object) const requires not std::ranges::input_range<decltype(object)> {
+		auto&& nameAs(zstring_view name, auto&& object) const requires (not std::ranges::input_range<decltype(object)>) {
 			setDebugName(device, std::forward<decltype(object)>(object), name);
 			return static_cast<decltype(object)>(object);
 		}

@@ -232,7 +232,7 @@ export namespace vkapp {
 
 		void reset() { start = Clock::now(); }
 
-		duration dt() requires not is_fixed {
+		duration dt() requires (not is_fixed) {
 			auto now = Clock::now();
 			return std::chrono::duration_cast<duration>(now - std::exchange(last, now));
 		}

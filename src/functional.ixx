@@ -50,14 +50,14 @@ export namespace vkapp {
 		using Properties = vk::LayerProperties;
 		static constexpr auto name = &vk::LayerProperties::layerName;
 		static auto all() { 
-			return vk::enumerateInstanceLayerProperties<std::allocator<vk::LayerProperties>, vk::detail::DispatchLoaderDynamic, 0, true>(); 
+			return vk::enumerateInstanceLayerProperties(); 
 		}
 	};
 	struct ExtensionDetails {
 		using Properties = vk::ExtensionProperties;
 		static constexpr auto name = &vk::ExtensionProperties::extensionName;
 		static auto all() { 
-			return vk::enumerateInstanceExtensionProperties<std::allocator<vk::ExtensionProperties>, vk::detail::DispatchLoaderDynamic, 0, true>(); 
+			return vk::enumerateInstanceExtensionProperties(); 
 		}
 	};
 	template <class Details>
